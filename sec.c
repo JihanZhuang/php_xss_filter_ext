@@ -36,6 +36,7 @@ zval* remove_invisible_characters(char *str,int str_len,bool url_encode){
     params[4]=count;
     do{
 
+
 	//will destory the params,retval is the new one ,not the make_std_zval created
         call_user_function(EG(function_table),NULL,&func,retval,5,params); 
 		//释放retval，只保留zvalue到params[2]
