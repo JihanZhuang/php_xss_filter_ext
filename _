@@ -1,0 +1,91 @@
+#include "php_sec.h"
+zend_class_entry *sec_ce;
+zval* remove_invisible_characters(char *str,int str_len,bool url_encode){
+    zval *non_displayables;
+    int i=0;
+    zval func,*params[5],*count,*retval;
+    MAKE_STD_ZVAL(non_displayables);
+    MAKE_STD_ZVAL(params[1]);
+    MAKE_STD_ZVAL(params[2]);
+    MAKE_STD_ZVAL(params[3]);
+    //init retval for param str,otherwise it does not need to init
+    MAKE_STD_ZVAL(retval);
+    MAKE_STD_ZVAL(count);
+    array_init(non_displayables);
+    if(url_encode){
+        add_index_string(non_displayables,i,"/%0[0-8bcef]/i",1);
+        i++;
+        add_index_string(non_displayables,i,"/%1[0-9a-f]/i",1);
+        i++;
+        add_index_string(non_displayables,i,"/%7f/i",1);
+        i++;
+    }
+    add_index_string(non_displayables,i,"/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]+/S",1);
+    //stack store the address of "preg_replace",do not need to dup. 
+    ZVAL_STRING(&func, "preg_replace", 0);
+    params[0]=non_displayables;
+    ZVAL_STRING(params[1], "", 0);
+    ZVAL_STRING(retval,str, 1);
+    params[2]=retval;
+    ZVAL_LONG(params[3],-1);
+    params[4]=count;
+    do{
+	//will destory the params,retval is the new one ,not the make_std_zval created
+       call_user_function(EG(function_table),NULL,&func,retval,5,params); 
+    }while(Z_LVAL(count));
+    return retval;
+}
+PHP_METHOD(sec, xss_clean )
+{
+    char *str;
+    int str_len;
+    zval *new_str,func,*params[3],retval;
+    if(zend_parse_parameters(ZEND_NUM_ARGS(),"s",&str,&str_len)==FAILURE){
+        return;
+    }
+    new_str=remove_invisible_characters(str,str_len,true);
+    //RETURN_ZVAL(new_str,0,0);
+    ZVAL_STRING(&func,"stripos",0);
+	MAKE_STD_ZVAL(params[0]);
+    MAKE_STD_ZVAL(params[1]);
+    ZVAL_ZVAL(params[0],new_str,0,0);
+    ZVAL_STRING(params[1],"%",0);
+    call_user_function(EG(function_table),NULL,&func,&retval,2,params);
+    if(Z_TYPE(retval)!=IS_BOOL||(Z_LVAL(retval)!=0)){
+		RETURN_ZVAL(&retval,1,0);	
+	}	
+
+}
+static zend_function_entry filter_method[]={
+    PHP_ME(sec, xss_clean,  NULL,   ZEND_ACC_PUBLIC)
+    {NULL,NULL,NULL}
+
+};
+PHP_MINIT_FUNCTION(sec)
+{
+    zend_class_entry ce;
+    INIT_CLASS_ENTRY(ce,"sec",filter_method);
+    sec_ce=zend_register_internal_class(&ce);
+    return SUCCESS;
+}
+//module entry
+zend_module_entry sec_module_entry = {
+#if ZEND_MODULE_API_NO >= 20010901
+     STANDARD_MODULE_HEADER,
+#endif
+    "sec",
+    filter_method, /* Functions */
+    PHP_MINIT(sec),/* MINIT */
+    NULL, /* MSHUTDOWN */
+    NULL, /* RINIT */
+    NULL, /* RSHUTDOWN */
+    NULL, /* MINFO */
+#if ZEND_MODULE_API_NO >= 20010901
+    "0.1",
+#endif
+    STANDARD_MODULE_PROPERTIES
+};
+#ifdef COMPILE_DL_SEC
+ZEND_GET_MODULE(sec)
+#endif
+
