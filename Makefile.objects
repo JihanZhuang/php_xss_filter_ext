@@ -1,0 +1,8 @@
+sec.lo: /root/php-5.6.31/ext/sec_ext/sec.c
+	$(LIBTOOL) --mode=compile $(CC)  -I. -I/root/php-5.6.31/ext/sec_ext $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)  -c /root/php-5.6.31/ext/sec_ext/sec.c -o sec.lo 
+$(phplibdir)/sec.la: ./sec.la
+	$(LIBTOOL) --mode=install cp ./sec.la $(phplibdir)
+
+./sec.la: $(shared_objects_sec) $(SEC_SHARED_DEPENDENCIES)
+	$(LIBTOOL) --mode=link $(CC) $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS) -o $@ -export-dynamic -avoid-version -prefer-pic -module -rpath $(phplibdir) $(EXTRA_LDFLAGS) $(shared_objects_sec) $(SEC_SHARED_LIBADD)
+
