@@ -39,7 +39,7 @@ zval* remove_invisible_characters(char *str,int str_len,bool url_encode){
 
 	//will destory the params,retval is the new one ,not the make_std_zval created
         call_user_function(EG(function_table),NULL,&func,retval,5,params); 
-		//释放retval，只保留zvalue到params[2]
+		//只保留zvalue到params[2]，不释放retval，因为循环中要用到
 		ZVAL_ZVAL(params[2],retval,0,0);
     }while(Z_LVAL_P(count));
 	//手动释放ht
@@ -47,8 +47,9 @@ zval* remove_invisible_characters(char *str,int str_len,bool url_encode){
 	//栈空间时不需要释放zval了。如果是堆空间，可以直接调用zval_ptr_dtor，会把ht的空间和zval结构体一并释放;zval_dtor只释放zvalue指针
 	//FREE_ZVAL(non_displayables);//单独释放zval结构体，不涉及里面的指针部分
 	FREE_ZVAL(params[1]);
-	//zval_dtor(params[2]);
 	zval_dtor(params[3]);
+	FREE_ZVAL(retval);//free retval
+	zval_dtor(count);//free
     return params[2];
 }
 PHP_METHOD(sec, _urldecodespaces)
@@ -67,6 +68,9 @@ PHP_METHOD(sec, _urldecodespaces)
 	ZVAL_STRING(params[1],"",0);
 	ZVAL_ZVAL(params[2],*input,0,0);
 	call_user_function(EG(function_table),NULL,&func,nospaces,3,params);
+	FREE_ZVAL(params[0]);
+	FREE_ZVAL(params[1]);
+	FREE_ZVAL(params[2]);
 	if(strcmp(Z_STRVAL_P(nospaces),Z_STRVAL_PP(input))==0&&Z_TYPE_PP(input)==IS_STRING&&Z_TYPE_P(nospaces)==IS_STRING){
 		//zval_dtor只释放zval中value申请的内存，并没有释放该zval调用MAKE_STD_ZVAL为该结构体生成的内存
 		zval_dtor(nospaces);
@@ -105,12 +109,37 @@ PHP_METHOD(sec, _convert_attribute)
 	ZVAL_ZVAL(params[1],replace,0,0);
 	ZVAL_ZVAL(params[2],*input,0,0);
 	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+	FREE_ZVAL(params[0]);
+    FREE_ZVAL(params[1]);
+    FREE_ZVAL(params[2]);
+	//因为数组的元素没有用堆申请空间进行拷贝，所以不能直接调用zval_ptr_dtor进行整体释放，只能手动释放
+	FREE_HASHTABLE(Z_ARRVAL_P(search));
+    FREE_ZVAL(search);
+	FREE_HASHTABLE(Z_ARRVAL_P(replace));
+    FREE_ZVAL(replace);
+	//zval_ptr_dtor(&search);
+	//zval_ptr_dtor(&replace); 
 	RETURN_ZVAL(&retval,0,0);
 
 }
 PHP_METHOD(sec,_decode_entity)
 {
-	//zval func,*params
+	zval func,*params[3],*match,**input,*retval;
+	if(zend_parse_parameters(ZEND_NUM_ARGS(),"a",&match)==FAILURE){
+        return;
+    }
+	zval *object=getThis();
+    zend_hash_index_find(Z_ARRVAL_P(match),0,(void **)&input);
+    MAKE_STD_ZVAL(params[0]);
+    MAKE_STD_ZVAL(params[1]);
+    MAKE_STD_ZVAL(params[2]);
+    MAKE_STD_ZVAL(retval);
+	ZVAL_STRING(&func,"xss_hash",0);
+	call_user_function(EG(function_table),&object,&func,retval,0,params);	
+	ZVAL_STRING(&func,"preg_replace",0);
+	ZVAL_STRING(params[0],"|\\&([a-z\\_0-9\\-]+)\\=([a-z\\_0-9\\-/]+)|i",0);
+    ZVAL_ZVAL(params[1],retval,0,0);
+    ZVAL_ZVAL(params[2],*input,0,0);
 }
 PHP_METHOD(sec, xss_clean )
 {
@@ -170,19 +199,30 @@ PHP_METHOD(sec, xss_clean )
 	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
 	zval_dtor(new_str);
 	ZVAL_ZVAL(new_str,&retval,0,0);
-	RETURN_ZVAL(new_str,0,0);
-	//ZVAL_STRING(params[0],"/<\\w+.*/si",0);
-	/*add_index_string(param_arr,1,"_decode_entity",1);	
+	//RETURN_ZVAL(new_str,0,0);
+	ZVAL_STRING(params[0],"/<\\w+.*/si",0);
+	add_index_string(param_arr,1,"_decode_entity",1);	
     ZVAL_ZVAL(params[1],param_arr,0,0);
     ZVAL_ZVAL(params[2],new_str,0,0);
 	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
 	zval_dtor(new_str);
 	ZVAL_ZVAL(new_str,&retval,0,0);
-	*/
+	
+	RETURN_ZVAL(new_str,0,0);
+	//free
+	add_index_string(param_arr,1,"",0);//添加两个空的字符串，为了释放原先在里面的内存
+	add_index_string(param_arr,2,"",0);//添加两个空的字符串，为了释放原先在里面的内存
+	FREE_HASHTABLE(Z_ARRVAL_P(param_arr));
+    FREE_ZVAL(param_arr);
+	FREE_ZVAL(params[0]);
+    FREE_ZVAL(params[1]);
+    FREE_ZVAL(params[2]);
+
 }
 static zend_function_entry filter_method[]={
     PHP_ME(sec, _urldecodespaces,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _convert_attribute,  NULL,   ZEND_ACC_PUBLIC)
+    PHP_ME(sec, _decode_entity,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, xss_clean,  NULL,   ZEND_ACC_PUBLIC)
     {NULL,NULL,NULL}
 
