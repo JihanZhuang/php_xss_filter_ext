@@ -122,13 +122,150 @@ PHP_METHOD(sec, _convert_attribute)
 	RETURN_ZVAL(&retval,0,0);
 
 }
+PHP_METHOD(sec,xss_hash)
+{
+	zval *_xss_hash,*retval,*params[2],func;
+	_xss_hash=zend_read_property(sec_ce,getThis(),"_xss_hash",sizeof("_xss_hash")-1,0);
+	if(Z_TYPE_P(_xss_hash) == IS_NULL){
+		MAKE_STD_ZVAL(retval);
+		ZVAL_STRING(&func,"mt_rand",0);
+		call_user_function(EG(function_table),NULL,&func,retval,0,params);
+		MAKE_STD_ZVAL(params[0]);
+	    MAKE_STD_ZVAL(params[1]);	
+		ZVAL_ZVAL(params[0],retval,0,0);
+		ZVAL_BOOL(params[1],1);
+		ZVAL_STRING(&func,"uniqid",0);
+		call_user_function(EG(function_table),NULL,&func,retval,2,params);
+		ZVAL_STRING(&func,"md5",0);
+		ZVAL_ZVAL(params[0],retval,0,0);
+		call_user_function(EG(function_table),NULL,&func,retval,1,params);
+		zend_update_property_string(sec_ce,getThis(),"_xss_hash",sizeof("_xss_hash")-1,Z_STRVAL_P(retval));
+		RETURN_ZVAL(retval,0,0);
+		zval_ptr_dtor(&retval);
+		FREE_ZVAL(params[0]);
+		FREE_ZVAL(params[1]);
+	}else{
+	//要深拷贝，不能直接赋值string的地址，因为如果在脚本调用后没有赋值到变量，即引用数减1后为0，立刻就会释放内存，会影响对象中的属性（因为地址相同）
+	//RETURN_ZVAL会对ref_count进行减1
+	RETURN_ZVAL(_xss_hash,1,0);
+	}
+}
+PHP_METHOD(sec,entity_decode)
+{
+	zval *charset,func,*params[3],*retval,*str,old_str,matches,**matches_0,*replace=NULL,**ele_value;
+	static zval *_entities=NULL;
+	char *input;
+    int input_len;
+    if(zend_parse_parameters(ZEND_NUM_ARGS(),"s",&input,&input_len)==FAILURE){
+        return;
+    }
+	MAKE_STD_ZVAL(params[0]);
+	MAKE_STD_ZVAL(params[1]);
+	MAKE_STD_ZVAL(params[2]);
+	MAKE_STD_ZVAL(retval);
+	ZVAL_STRING(&func,"strpos",0);
+	ZVAL_STRING(params[0],input,1);
+	ZVAL_STRING(params[1],"&",0);
+	MAKE_STD_ZVAL(str);
+	ZVAL_ZVAL(str,params[0],0,0);
+	call_user_function(EG(function_table),NULL,&func,retval,2,params);
+	if(Z_TYPE_P(retval)==IS_BOOL&&(Z_LVAL_P(retval)==0)){
+		FREE_ZVAL(params[1]);
+		RETURN_ZVAL(params[0],0,0);	
+		FREE_ZVAL(params[0]);
+		zval_ptr_dtor(&retval);
+	}else{
+		zval_dtor(retval);
+		if(_entities==NULL){
+			MAKE_STD_ZVAL(_entities);
+			ZVAL_STRING(&func,"get_html_translation_table",0);
+			//HTML_ENTITIES is equal to 1
+			//ENT_COMPAT | ENT_HTML5 is equal to 50
+			ZVAL_LONG(params[0],1);	
+			ZVAL_LONG(params[1],50);	
+			ZVAL_STRING(params[2],"utf-8",0);
+			call_user_function(EG(function_table),NULL,&func,_entities,3,params);
+			ZVAL_STRING(&func,"array_map",0);
+			ZVAL_STRING(params[0],"strtolower",0);
+			ZVAL_ZVAL(params[1],_entities,0,0);
+			call_user_function(EG(function_table),NULL,&func,_entities,2,params);
+			zval_dtor(params[1]);
+		}
+		ZVAL_NULL(&old_str);
+		MAKE_STD_ZVAL(matches);
+		MAKE_STD_ZVAL(replace);
+		ZVAL_NULL(replace);
+		do{
+			if(Z_TYPE_P(&old_str) != IS_NULL){
+                zval_dtor(&old_str);
+            } 	
+			ZVAL_ZVAL(&old_str,str,0,0);
+			ZVAL_STRING(&func,"preg_match_all",0);
+			ZVAL_STRING(params[0],"/&[a-z]{2,}(?![a-z;])/i",0);
+			ZVAL_ZVAL(params[1],str,0,0);
+			ZVAL_ZVAL(params[2],matches,0,0);
+			call_user_function(EG(function_table),NULL,&func,retval,3,params);
+			if(Z_TYPE_P(retval)==IS_BOOL&&(Z_LVAL_P(retval)==1)){
+				zval_dtor(retval);
+				zend_hash_index_find(Z_ARRVAL_P(matches),0,(void **)&matches_0);			
+				ZVAL_STRING(&func,"array_map",0);
+				ZVAL_STRING(params[0],"strtolower",0);
+				ZVAL_STRING(params[1],*matches_0,0);
+				call_user_function(EG(function_table),NULL,&func,retval,2,params);
+				zval_dtor(matches);
+				ZVAL_STRING(&func,"array_unique",0);
+				ZVAL_ZVAL(params[0],retval,0,0);
+				call_user_function(EG(function_table),NULL,&func,matches,1,params);
+				zval_dtor(retval);
+				if(Z_TYPE_P(replace) != IS_NULL){
+                	zval_dtor(replace);
+					array_init(replace);
+            	}
+				for(zend_hash_internal_pointer_reset(Z_ARRVAL_P(replace));
+					zend_hash_has_more_elements(Z_ARRVAL_P(replace)) == SUCCESS;
+					zend_hash_move_forward(Z_ARRVAL_P(replace))) {
+					zval *tmp_copy;
+					char *tmp_str;
+					if (zend_hash_get_current_data(Z_ARRVAL_P(replace), (void**)&ele_value) == FAILURE) {
+						/* Should never actually fail since the key is known to exist.*/
+						continue;
+					}
+					tmp_copy=*ele_value;
+					str=(char *)malloc(strlen(Z_STRVAL_P(tmp_copy))+strlen(";")+1);
+				    strcpy(str,Z_STRVAL_P(tmp_copy));
+				    strcat(str,";");
+				    ZVAL_STRING(params[0],str,1);
+				    free(str);
+				    ZVAL_ZVAL(params[1],_entities,0);
+				    ZVAL_BOOL(params[2],1);
+					ZVAL_STRING(&func,"array_search",0);
+					call_user_function(EG(function_table),NULL,&func,retval,3,params);	
+				}
+			}
+		}while(strcmp(Z_STRVAL(old_str),Z_STRVAL_P(str))!=0);	
+		if(Z_TYPE_P(replace) != IS_NULL){
+             zval_ptr_dtor(&replace);
+        }else{
+			  FREE_ZVAL(replace);
+		}
+		
+		FREE_ZVAL(params[1]);
+		//跟类的属性同理，不要直接赋值，因为会导致在脚本阶段输出后-1就释放了
+        RETURN_ZVAL(_entities,1,0);
+        zval_ptr_dtor(&str);
+        //zval_ptr_dtor(&retval);
+	}
+}
 PHP_METHOD(sec,_decode_entity)
 {
 	zval func,*params[3],*match,**input,*retval;
+	char *str;
 	if(zend_parse_parameters(ZEND_NUM_ARGS(),"a",&match)==FAILURE){
         return;
     }
 	zval *object=getThis();
+	zval tmp_replace;
+	INIT_ZVAL(tmp_replace);
     zend_hash_index_find(Z_ARRVAL_P(match),0,(void **)&input);
     MAKE_STD_ZVAL(params[0]);
     MAKE_STD_ZVAL(params[1]);
@@ -136,10 +273,27 @@ PHP_METHOD(sec,_decode_entity)
     MAKE_STD_ZVAL(retval);
 	ZVAL_STRING(&func,"xss_hash",0);
 	call_user_function(EG(function_table),&object,&func,retval,0,params);	
+	str=(char *)malloc(strlen(Z_STRVAL_P(retval))+strlen("\\1=\\2")+1);
+	ZVAL_ZVAL(&tmp_replace,retval,0,0);
+	strcpy(str,Z_STRVAL_P(retval));
+	strcat(str,"\\1=\\2");
+	ZVAL_STRING(retval,str,1);
+	free(str);
 	ZVAL_STRING(&func,"preg_replace",0);
 	ZVAL_STRING(params[0],"|\\&([a-z\\_0-9\\-]+)\\=([a-z\\_0-9\\-/]+)|i",0);
     ZVAL_ZVAL(params[1],retval,0,0);
     ZVAL_ZVAL(params[2],*input,0,0);
+	ZVAL_STRING(&func,"entity_decode",0);
+	call_user_function(EG(function_table),&object,&func,retval,3,params);
+	zval_dtor(params[1]);
+	ZVAL_ZVAL(params[0],&tmp_replace,0,0);
+	ZVAL_STRING(params[1],"&",0);
+	ZVAL_ZVAL(params[2],retval,0,0);
+	ZVAL_STRING(&func,"str_replace",0);
+	call_user_function(EG(function_table),NULL,&func,retval,3,params);
+	RETURN_ZVAL(retval,0,0);
+	zval_ptr_dtor(&params[0]);
+	zval_ptr_dtor(&params[2]);
 }
 PHP_METHOD(sec, xss_clean )
 {
@@ -222,6 +376,8 @@ PHP_METHOD(sec, xss_clean )
 static zend_function_entry filter_method[]={
     PHP_ME(sec, _urldecodespaces,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _convert_attribute,  NULL,   ZEND_ACC_PUBLIC)
+    PHP_ME(sec, xss_hash,  NULL,   ZEND_ACC_PUBLIC)
+    PHP_ME(sec, entity_decode,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _decode_entity,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, xss_clean,  NULL,   ZEND_ACC_PUBLIC)
     {NULL,NULL,NULL}
@@ -232,6 +388,7 @@ PHP_MINIT_FUNCTION(sec)
     zend_class_entry ce;
     INIT_CLASS_ENTRY(ce,"sec",filter_method);
     sec_ce=zend_register_internal_class(&ce);
+	zend_declare_property_null(sec_ce, "_xss_hash", strlen("_xss_hash"), ZEND_ACC_PROTECTED);
     return SUCCESS;
 }
 //module entry
