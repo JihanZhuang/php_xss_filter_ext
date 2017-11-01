@@ -152,7 +152,7 @@ PHP_METHOD(sec,xss_hash)
 }
 PHP_METHOD(sec,entity_decode)
 {
-	zval *charset,func,*params[3],*retval,*str,old_str,matches,**matches_0,*replace=NULL,**ele_value;
+	zval *charset,func,*params[3],*retval,*str,old_str,matches,**matches_0,*replace=NULL,**ele_value,*keys,*values;
 	static zval *_entities=NULL;
 	char *input;
     int input_len;
@@ -194,6 +194,8 @@ PHP_METHOD(sec,entity_decode)
 		ZVAL_NULL(&old_str);
 		MAKE_STD_ZVAL(matches);
 		MAKE_STD_ZVAL(replace);
+		MAKE_STD_ZVAL(keys);
+		MAKE_STD_ZVAL(values);
 		ZVAL_NULL(replace);
 		do{
 			if(Z_TYPE_P(&old_str) != IS_NULL){
@@ -231,15 +233,31 @@ PHP_METHOD(sec,entity_decode)
 						continue;
 					}
 					tmp_copy=*ele_value;
-					str=(char *)malloc(strlen(Z_STRVAL_P(tmp_copy))+strlen(";")+1);
-				    strcpy(str,Z_STRVAL_P(tmp_copy));
-				    strcat(str,";");
-				    ZVAL_STRING(params[0],str,1);
-				    free(str);
+					tmp_str=(char *)malloc(strlen(Z_STRVAL_P(tmp_copy))+strlen(";")+1);
+				    strcpy(tmp_str,Z_STRVAL_P(tmp_copy));
+				    strcat(tmp_str,";");
+				    ZVAL_STRING(params[0],tmp_str,1);
+				    free(tmp_str);
 				    ZVAL_ZVAL(params[1],_entities,0);
 				    ZVAL_BOOL(params[2],1);
 					ZVAL_STRING(&func,"array_search",0);
 					call_user_function(EG(function_table),NULL,&func,retval,3,params);	
+					zval_dtor(params[0]);
+					if(Z_TYPE_P(retval)!=IS_BOOL&&(Z_LVAL_P(retval)!=0){
+						add_assoc_string(replace,Z_STRVAL_P(tmp_copy),Z_STRVAL_P(retval),1);
+					}
+					ZVAL_STRING(&func,"array_keys",0);
+					ZVAL_ZVAL(params[0],replace,0);
+					call_user_function(EG(function_table),NULL,&func,keys,1,params);
+					ZVAL_STRING(&func,"array_values",0);
+					ZVAL_ZVAL(params[0],replace,0);
+					call_user_function(EG(function_table),NULL,&func,values,1,params);
+					ZVAL_STRING(&func,"str_replace",0);
+					ZVAL_ZVAL(params[0],keys,0);
+					ZVAL_ZVAL(params[1],values,0);
+					ZVAL_ZVAL(params[2],str,0);
+					call_user_function(EG(function_table),NULL,&func,str,3,params);
+
 				}
 			}
 		}while(strcmp(Z_STRVAL(old_str),Z_STRVAL_P(str))!=0);	
