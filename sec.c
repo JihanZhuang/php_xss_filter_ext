@@ -313,6 +313,7 @@ PHP_METHOD(sec,_decode_entity)
 	ZVAL_STRING(&func,"xss_hash",0);
 	call_user_function(EG(function_table),&object,&func,retval,0,params);	
 	str=(char *)malloc(strlen(Z_STRVAL_P(retval))+strlen("\\1=\\2")+1);
+	//tmp_replace is xss_hash
 	ZVAL_ZVAL(&tmp_replace,retval,0,0);
 	strcpy(str,Z_STRVAL_P(retval));
 	strcat(str,"\\1=\\2");
@@ -322,9 +323,12 @@ PHP_METHOD(sec,_decode_entity)
 	ZVAL_STRING(params[0],"|\\&([a-z\\_0-9\\-]+)\\=([a-z\\_0-9\\-/]+)|i",0);
     ZVAL_ZVAL(params[1],retval,0,0);
     ZVAL_ZVAL(params[2],*input,0,0);
-	ZVAL_STRING(&func,"entity_decode",0);
-	call_user_function(EG(function_table),&object,&func,retval,3,params);
+	call_user_function(EG(function_table),NULL,&func,retval,3,params);
 	zval_dtor(params[1]);
+	ZVAL_STRING(&func,"entity_decode",0);
+	ZVAL_ZVAL(params[0],retval,0,0);
+	call_user_function(EG(function_table),&object,&func,retval,1,params);
+	zval_dtor(params[0]);
 	ZVAL_ZVAL(params[0],&tmp_replace,0,0);
 	ZVAL_STRING(params[1],"&",0);
 	ZVAL_ZVAL(params[2],retval,0,0);
@@ -398,10 +402,18 @@ PHP_METHOD(sec, xss_clean )
     ZVAL_ZVAL(params[1],param_arr,0,0);
     ZVAL_ZVAL(params[2],new_str,0,0);
 	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+	zval_ptr_dtor(&new_str);
+	new_str=remove_invisible_characters(Z_STRVAL(retval),Z_STRLEN(retval),true);	
+	zval_dtor(&retval);
+	//entity_decode
+	//RETURN_ZVAL(new_str,0,0);	
+    ZVAL_STRING(&func,"str_replace",0);
+    ZVAL_STRING(params[0],"\\t",0);
+    ZVAL_STRING(params[1]," ",0);
+    ZVAL_ZVAL(params[2],new_str,0,0);
+	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
 	zval_dtor(new_str);
 	ZVAL_ZVAL(new_str,&retval,0,0);
-	
-	RETURN_ZVAL(new_str,0,0);
 	//free
 	add_index_string(param_arr,1,"",0);//添加两个空的字符串，为了释放原先在里面的内存
 	add_index_string(param_arr,2,"",0);//添加两个空的字符串，为了释放原先在里面的内存
@@ -412,6 +424,37 @@ PHP_METHOD(sec, xss_clean )
     FREE_ZVAL(params[2]);
 
 }
+PHP_METHOD(sec,__construct)
+{
+	zval *_never_allowed_str,*_never_allowed_regex;
+	MAKE_STD_ZVAL(_never_allowed_str);
+	array_init(_never_allowed_str);	
+	add_assoc_string(_never_allowed_str,"document.cookie","[removed]",1);	
+	add_assoc_string(_never_allowed_str,"document.write","[removed]",1);	
+	add_assoc_string(_never_allowed_str,".parentNode","[removed]",1);	
+	add_assoc_string(_never_allowed_str,".innerHTML","[removed]",1);	
+	add_assoc_string(_never_allowed_str,"-moz-binding","[removed]",1);	
+	add_assoc_string(_never_allowed_str,"<!--","&lt;!--",1);	
+	add_assoc_string(_never_allowed_str,"-->","--&gt;",1);	
+	add_assoc_string(_never_allowed_str,"<![CDATA[","&lt;![CDATA[",1);	
+	add_assoc_string(_never_allowed_str,"<comment>","&lt;comment&gt;",1);	
+	add_assoc_string(_never_allowed_str,"<%","&lt;&#37;",1);	
+	zend_update_property(sec_ce,getThis(),"_never_allowed_str",strlen("_never_allowed_str"),_never_allowed_str);
+	MAKE_STD_ZVAL(_never_allowed_regex);
+	array_init(_never_allowed_regex);	
+    add_next_index_string(_never_allowed_regex,"javascript\\s*:",1); 
+    add_next_index_string(_never_allowed_regex,"(document|(document\\.)?window)\\.(location|on\\w*)",1);  
+    add_next_index_string(_never_allowed_regex,"expression\\s*(\\(|&\\#40;)",1); 
+    add_next_index_string(_never_allowed_regex,"vbscript\\s*:",1);  
+    add_next_index_string(_never_allowed_regex,"wscript\\s*:",1);    
+    add_next_index_string(_never_allowed_regex,"jscript\\s*:",1);    
+    add_next_index_string(_never_allowed_regex,"vbs\\s*:",1); 
+    add_next_index_string(_never_allowed_regex,"Redirect\\s+30\\d",1);   
+    add_next_index_string(_never_allowed_regex,"([\"'])?data\\s*:[^\\1]*?base64[^\\1]*?,[^\\1]*?\\1?",1);   
+	zend_update_property(sec_ce,getThis(),"_never_allowed_regex",strlen("_never_allowed_regex"),_never_allowed_regex);
+
+
+}
 static zend_function_entry filter_method[]={
     PHP_ME(sec, _urldecodespaces,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _convert_attribute,  NULL,   ZEND_ACC_PUBLIC)
@@ -419,6 +462,7 @@ static zend_function_entry filter_method[]={
     PHP_ME(sec, entity_decode,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _decode_entity,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, xss_clean,  NULL,   ZEND_ACC_PUBLIC)
+    PHP_ME(sec, __construct,  NULL,   ZEND_ACC_PUBLIC)
     {NULL,NULL,NULL}
 
 };
@@ -428,7 +472,9 @@ PHP_MINIT_FUNCTION(sec)
     INIT_CLASS_ENTRY(ce,"sec",filter_method);
     sec_ce=zend_register_internal_class(&ce);
 	zend_declare_property_null(sec_ce, "_xss_hash", strlen("_xss_hash"), ZEND_ACC_PROTECTED);
-    return SUCCESS;
+	zend_declare_property_null(sec_ce, "_never_allowed_str", strlen("_never_allowed_str"), ZEND_ACC_PUBLIC);
+	zend_declare_property_null(sec_ce, "_never_allowed_regex", strlen("_never_allowed_regex"), ZEND_ACC_PUBLIC);
+	return SUCCESS;
 }
 //module entry
 zend_module_entry sec_module_entry = {
