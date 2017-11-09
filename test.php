@@ -16,6 +16,6 @@ for($i=0;$i<1000;$i++){
 echo $b->xss_clean("http%3a%2f%2ftool.chinaz.com%2fTo%      1aols%2furlencode.aspx")."\n";
 }*/
 for($i=0;$i<1000;$i++){
-$c=$a->entity_decode("&lt;!Doctype html&gt; &lt;html lang=&quot;zh_cn&quot;&gt; &lt;head&gt; &lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt; &lt;title&gt;查错网&lt;/title&gt; &lt;/head&gt;");
+$c=$a->entity_decode("&lt!Doctype html&gt; &lt;html lang=&quot;zh_cn&quot;&gt; &lt;head&gt; &lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt; &lt;title&gt;查错网&lt;/title&gt; &lt;/head&gt");
 var_dump($c);
 }
