@@ -338,6 +338,57 @@ PHP_METHOD(sec,_decode_entity)
 	zval_ptr_dtor(&params[0]);
 	zval_ptr_dtor(&params[2]);
 }
+PHP_METHOD(sec,_do_never_allowed)
+{
+	zval func,*params[3],*str,*retval,*keys,*_never_allowed_str,*_never_allowed_regex,**ele_value;
+    if(zend_parse_parameters(ZEND_NUM_ARGS(),"z",&str)==FAILURE){
+        return;
+    }	
+	MAKE_STD_ZVAL(params[0]);
+	MAKE_STD_ZVAL(params[1]);
+	MAKE_STD_ZVAL(params[2]);
+	MAKE_STD_ZVAL(keys);
+	MAKE_STD_ZVAL(retval);
+	_never_allowed_str=zend_read_property(sec_ce,getThis(),"_never_allowed_str",strlen("_never_allowed_str"),0);	
+	_never_allowed_regex=zend_read_property(sec_ce,getThis(),"_never_allowed_regex",strlen("_never_allowed_regex"),0);	
+	ZVAL_STRING(&func,"array_keys",0);
+	ZVAL_ZVAL(params[0],_never_allowed_str,0,0);
+	call_user_function(EG(function_table),NULL,&func,keys,1,params);
+	ZVAL_STRING(&func,"str_replace",0);
+	ZVAL_ZVAL(params[0],keys,0,0);
+	ZVAL_ZVAL(params[1],_never_allowed_str,0,0);
+	ZVAL_ZVAL(params[2],str,0,0);
+	call_user_function(EG(function_table),NULL,&func,retval,3,params);	
+	zval_ptr_dtor(&keys);
+	for(zend_hash_internal_pointer_reset(Z_ARRVAL_P(_never_allowed_regex));
+                    zend_hash_has_more_elements(Z_ARRVAL_P(_never_allowed_regex)) == SUCCESS;
+                    zend_hash_move_forward(Z_ARRVAL_P(_never_allowed_regex))) {
+                    zval *tmp_copy;
+					char *tmp_str;
+                    if (zend_hash_get_current_data(Z_ARRVAL_P(_never_allowed_regex), (void**)&ele_value) == FAILURE) {
+                        /* Should never actually fail since the key is known to exist.*/
+                        continue;
+                    }
+					tmp_copy=*ele_value;
+                    tmp_str=(char *)malloc(strlen(Z_STRVAL_P(tmp_copy))+strlen("#")+strlen("#is")+1);
+					strcpy(tmp_str,"#");
+                    strcat(tmp_str,Z_STRVAL_P(tmp_copy));
+                    strcat(tmp_str,"#is");
+                    ZVAL_STRING(params[0],tmp_str,1);
+                    free(tmp_str);
+					ZVAL_STRING(&func,"preg_replace",0);
+                    ZVAL_STRING(params[1],"[removed]",0);
+                    ZVAL_ZVAL(params[2],retval,0,0);
+					call_user_function(EG(function_table),NULL,&func,retval,3,params);
+					zval_dtor(params[2]);
+    }		
+	RETURN_ZVAL(retval,0,0);
+	FREE_ZVAL(params[0]);
+	FREE_ZVAL(params[1]);
+	FREE_ZVAL(params[2]);
+	FREE_ZVAL(retval);
+	
+}
 PHP_METHOD(sec, xss_clean )
 {
     char *str;
@@ -414,6 +465,23 @@ PHP_METHOD(sec, xss_clean )
 	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
 	zval_dtor(new_str);
 	ZVAL_ZVAL(new_str,&retval,0,0);
+	ZVAL_ZVAL(params[0],new_str,0,0);
+	ZVAL_STRING(&func,"_do_never_allowed",0);
+	call_user_function(EG(function_table),&object,&func,&retval,1,params);
+	zval_dtor(new_str);
+	ZVAL_ZVAL(new_str,&retval,0,0);
+	ZVAL_STRING(&func,"str_replace",0);
+	array_init(params[0]);
+	array_init(params[1]);
+	add_next_index_string(params[0],"<?",0);
+	add_next_index_string(params[0],"?>",0);
+	add_next_index_string(params[1],"&lt;?",0);
+	add_next_index_string(params[1],"?&gt;",0);
+	ZVAL_ZVAL(params[2],new_str,0,0);
+	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+	zval_dtor(new_str);
+	ZVAL_ZVAL(new_str,&retval,0,0);
+
 	//free
 	add_index_string(param_arr,1,"",0);//添加两个空的字符串，为了释放原先在里面的内存
 	add_index_string(param_arr,2,"",0);//添加两个空的字符串，为了释放原先在里面的内存
@@ -426,7 +494,7 @@ PHP_METHOD(sec, xss_clean )
 }
 PHP_METHOD(sec,__construct)
 {
-	zval *_never_allowed_str,*_never_allowed_regex;
+	zval *_never_allowed_str,*_never_allowed_regex,*_words;
 	MAKE_STD_ZVAL(_never_allowed_str);
 	array_init(_never_allowed_str);	
 	add_assoc_string(_never_allowed_str,"document.cookie","[removed]",1);	
@@ -452,6 +520,26 @@ PHP_METHOD(sec,__construct)
     add_next_index_string(_never_allowed_regex,"Redirect\\s+30\\d",1);   
     add_next_index_string(_never_allowed_regex,"([\"'])?data\\s*:[^\\1]*?base64[^\\1]*?,[^\\1]*?\\1?",1);   
 	zend_update_property(sec_ce,getThis(),"_never_allowed_regex",strlen("_never_allowed_regex"),_never_allowed_regex);
+	MAKE_STD_ZVAL(_words);
+	array_init(_words);	
+    add_next_index_string(_words,"javascript",1); 
+    add_next_index_string(_words,"expression",1);  
+    add_next_index_string(_words,"vbscript",1); 
+    add_next_index_string(_words,"jscript",1);  
+    add_next_index_string(_words,"wscript",1);        
+    add_next_index_string(_words,"vbs",1);        
+    add_next_index_string(_words,"script",1); 
+    add_next_index_string(_words,"base64",1);   
+    add_next_index_string(_words,"applet",1);
+    add_next_index_string(_words,"alert",1);
+    add_next_index_string(_words,"document",1);
+    add_next_index_string(_words,"write",1);
+    add_next_index_string(_words,"cookie",1);
+    add_next_index_string(_words,"window",1);
+    add_next_index_string(_words,"confirm",1);
+    add_next_index_string(_words,"prompt",1);
+    add_next_index_string(_words,"eval",1);
+    zend_update_property(sec_ce,getThis(),"_words",strlen("_words"),_words);
 
 
 }
@@ -461,6 +549,7 @@ static zend_function_entry filter_method[]={
     PHP_ME(sec, xss_hash,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, entity_decode,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _decode_entity,  NULL,   ZEND_ACC_PUBLIC)
+    PHP_ME(sec, _do_never_allowed,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, xss_clean,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, __construct,  NULL,   ZEND_ACC_PUBLIC)
     {NULL,NULL,NULL}
@@ -474,6 +563,7 @@ PHP_MINIT_FUNCTION(sec)
 	zend_declare_property_null(sec_ce, "_xss_hash", strlen("_xss_hash"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(sec_ce, "_never_allowed_str", strlen("_never_allowed_str"), ZEND_ACC_PUBLIC);
 	zend_declare_property_null(sec_ce, "_never_allowed_regex", strlen("_never_allowed_regex"), ZEND_ACC_PUBLIC);
+	zend_declare_property_null(sec_ce, "_words", strlen("_words"), ZEND_ACC_PUBLIC);
 	return SUCCESS;
 }
 //module entry
