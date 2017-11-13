@@ -524,7 +524,7 @@ PHP_METHOD(sec, xss_clean )
                     ZVAL_STRING(params[0],"\\s*",0);
                     ZVAL_ZVAL(params[1],&retval,0,0);
 					ZVAL_STRING(&func,"implode",0);
-					call_user_function(EG(function_table),NULL,&func,&retval,1,params);
+					call_user_function(EG(function_table),NULL,&func,&retval,2,params);
 					zval_dtor(params[1]);
                     tmp_str=(char *)malloc(strlen(Z_STRVAL(retval))+strlen("\\s*")+1);
                     strcpy(tmp_str,Z_STRVAL(retval));

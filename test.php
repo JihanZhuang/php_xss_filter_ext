@@ -6,4 +6,4 @@ var_dump($c);
 echo $a->_do_never_allowed("safdasfsadfsadfsafs  document.cookie  <![CDATA[   document.window.location");
 }
 var_dump($a->_words);
-
+$a->_compact_exploded_words(array('sdf sad sadf asdf asd ','123123123'));
