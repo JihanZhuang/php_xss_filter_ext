@@ -389,6 +389,32 @@ PHP_METHOD(sec,_do_never_allowed)
 	FREE_ZVAL(retval);
 	
 }
+PHP_METHOD(sec,_compact_exploded_words)
+{
+	zval *matches,**matches_0,**matches_1,*params[3],func,retval;
+	char *str;
+	if(zend_parse_parameters(ZEND_NUM_ARGS(),"a",&matches)==FAILURE){
+        return;
+    }
+	zend_hash_index_find(Z_ARRVAL_P(matches),0,(void **)&matches_0);
+	zend_hash_index_find(Z_ARRVAL_P(matches),1,(void **)&matches_1);
+	MAKE_STD_ZVAL(params[0]);
+	MAKE_STD_ZVAL(params[1]);
+	MAKE_STD_ZVAL(params[2]);
+	ZVAL_STRING(params[0],"/\\s+/s",0);
+	ZVAL_STRING(params[1],"",0);
+	ZVAL_ZVAL(params[2],*matches_0,0,0);
+	ZVAL_STRING(&func,"preg_replace",0);
+	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+	str=(char *)malloc(strlen(Z_STRVAL(retval))+strlen(Z_STRVAL_P(*matches_1))+1);
+	strcpy(str,Z_STRVAL(retval));
+	strcat(str,Z_STRVAL_P(*matches_1));
+	RETURN_STRING(str,1);
+	free(str);
+	FREE_ZVAL(params[0]);
+	FREE_ZVAL(params[1]);
+	FREE_ZVAL(params[2]);
+}
 PHP_METHOD(sec, xss_clean )
 {
     char *str;
@@ -482,27 +508,49 @@ PHP_METHOD(sec, xss_clean )
 	zval_dtor(new_str);
 	ZVAL_ZVAL(new_str,&retval,0,0);
 	_words=zend_read_property(sec_ce,getThis(),"_words",strlen("_words"),0);	
-	for(zend_hash_internal_pointer_reset(Z_ARRVAL_P(_never_allowed_regex));
-                    zend_hash_has_more_elements(Z_ARRVAL_P(_never_allowed_regex)) == SUCCESS;
-                    zend_hash_move_forward(Z_ARRVAL_P(_never_allowed_regex))) {
+	for(zend_hash_internal_pointer_reset(Z_ARRVAL_P(_words));
+                    zend_hash_has_more_elements(Z_ARRVAL_P(_words)) == SUCCESS;
+                    zend_hash_move_forward(Z_ARRVAL_P(_words))) {
                     zval *tmp_copy;
                     char *tmp_str;
-                    if (zend_hash_get_current_data(Z_ARRVAL_P(_never_allowed_regex), (void**)&ele_value) == FAILURE) {
+                    if (zend_hash_get_current_data(Z_ARRVAL_P(_words), (void**)&ele_value) == FAILURE) {
                         /* Should never actually fail since the key is known to exist.*/
                         continue;
                     }
                     tmp_copy=*ele_value;
-                    tmp_str=(char *)malloc(strlen(Z_STRVAL_P(tmp_copy))+strlen("#")+strlen("#is")+1);
-                    strcpy(tmp_str,"#");
-                    strcat(tmp_str,Z_STRVAL_P(tmp_copy));
-                    strcat(tmp_str,"#is");
+                    ZVAL_ZVAL(params[0],tmp_copy,0,0);
+					ZVAL_STRING(&func,"str_split",0);
+					call_user_function(EG(function_table),NULL,&func,&retval,1,params);
+                    ZVAL_STRING(params[0],"\\s*",0);
+                    ZVAL_ZVAL(params[1],&retval,0,0);
+					ZVAL_STRING(&func,"implode",0);
+					call_user_function(EG(function_table),NULL,&func,&retval,1,params);
+					zval_dtor(params[1]);
+                    tmp_str=(char *)malloc(strlen(Z_STRVAL(retval))+strlen("\\s*")+1);
+                    strcpy(tmp_str,Z_STRVAL(retval));
+                    strcat(tmp_str,"\\s*");
                     ZVAL_STRING(params[0],tmp_str,1);
                     free(tmp_str);
-                    ZVAL_STRING(&func,"preg_replace",0);
-                    ZVAL_STRING(params[1],"[removed]",0);
-                    ZVAL_ZVAL(params[2],retval,0,0);
-                    call_user_function(EG(function_table),NULL,&func,retval,3,params);
-                    zval_dtor(params[2]);
+                    ZVAL_STRING(&func,"substr",0);
+                    ZVAL_LONG(params[1],0);
+                    ZVAL_LONG(params[2],-3);
+                    call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+                    zval_dtor(params[0]);
+                    tmp_str=(char *)malloc(strlen(Z_STRVAL(retval))+strlen("#(")+strlen(")(\\W)#is")+1);
+					strcpy(tmp_str,"#(");
+                    strcat(tmp_str,Z_STRVAL(retval));
+					zval_dtor(&retval);
+                    strcat(tmp_str,")(\\W)#is");
+                    ZVAL_STRING(params[0],tmp_str,1);
+                    free(tmp_str);
+					add_index_string(param_arr,1,"_compact_exploded_words",1);
+                    ZVAL_ZVAL(params[1],param_arr,0,0);
+                    ZVAL_ZVAL(params[2],new_str,0,0);
+                    ZVAL_STRING(&func,"preg_replace_callback",0);
+					call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+					zval_dtor(params[0]);
+					zval_dtor(params[2]);
+					ZVAL_ZVAL(new_str,&retval,0,0);
     }
 	//free
 	add_index_string(param_arr,1,"",0);//添加两个空的字符串，为了释放原先在里面的内存
