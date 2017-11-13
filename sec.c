@@ -620,6 +620,7 @@ static zend_function_entry filter_method[]={
     PHP_ME(sec, entity_decode,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _decode_entity,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, _do_never_allowed,  NULL,   ZEND_ACC_PUBLIC)
+    PHP_ME(sec, _compact_exploded_words,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, xss_clean,  NULL,   ZEND_ACC_PUBLIC)
     PHP_ME(sec, __construct,  NULL,   ZEND_ACC_PUBLIC)
     {NULL,NULL,NULL}
