@@ -552,6 +552,7 @@ PHP_METHOD(sec, xss_clean )
 					zval_dtor(params[2]);
 					ZVAL_ZVAL(new_str,&retval,0,0);
     }
+	//RETURN_ZVAL(new_str,0,0);	
 	//free
 	add_index_string(param_arr,1,"",0);//添加两个空的字符串，为了释放原先在里面的内存
 	add_index_string(param_arr,2,"",0);//添加两个空的字符串，为了释放原先在里面的内存
