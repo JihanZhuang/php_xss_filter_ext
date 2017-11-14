@@ -565,7 +565,7 @@ PHP_METHOD(sec, xss_clean )
 }
 PHP_METHOD(sec,__construct)
 {
-	zval *_never_allowed_str,*_never_allowed_regex,*_words;
+	zval *_never_allowed_str,*_never_allowed_regex,*_words,*_naughty_tags,*_evil_attributes;
 	MAKE_STD_ZVAL(_never_allowed_str);
 	array_init(_never_allowed_str);	
 	add_assoc_string(_never_allowed_str,"document.cookie","[removed]",1);	
@@ -611,7 +611,49 @@ PHP_METHOD(sec,__construct)
     add_next_index_string(_words,"prompt",1);
     add_next_index_string(_words,"eval",1);
     zend_update_property(sec_ce,getThis(),"_words",strlen("_words"),_words);
-
+    MAKE_STD_ZVAL(_naughty_tags);
+    array_init(_naughty_tags); 
+	add_next_index_string(_naughty_tags,"alert",1);
+	add_next_index_string(_naughty_tags,"area",1);
+	add_next_index_string(_naughty_tags,"prompt",1);
+	add_next_index_string(_naughty_tags,"confirm",1);
+	add_next_index_string(_naughty_tags,"applet",1);
+	add_next_index_string(_naughty_tags,"audio",1);
+	add_next_index_string(_naughty_tags,"basefont",1);
+	add_next_index_string(_naughty_tags,"base",1);
+	add_next_index_string(_naughty_tags,"behavior",1);
+	add_next_index_string(_naughty_tags,"bgsound",1);
+	add_next_index_string(_naughty_tags,"blink",1);
+	add_next_index_string(_naughty_tags,"body",1);
+	add_next_index_string(_naughty_tags,"embed",1);
+	add_next_index_string(_naughty_tags,"expression",1);
+	add_next_index_string(_naughty_tags,"form",1);
+	add_next_index_string(_naughty_tags,"frameset",1);
+	add_next_index_string(_naughty_tags,"frame",1);
+	add_next_index_string(_naughty_tags,"head",1);
+	add_next_index_string(_naughty_tags,"html",1);
+	add_next_index_string(_naughty_tags,"ilayer",1);
+	add_next_index_string(_naughty_tags,"iframe",1);
+	add_next_index_string(_naughty_tags,"input",1);
+	add_next_index_string(_naughty_tags,"button",1);
+	add_next_index_string(_naughty_tags,"select",1);
+	add_next_index_string(_naughty_tags,"isindex",1);
+	add_next_index_string(_naughty_tags,"layer",1);
+	add_next_index_string(_naughty_tags,"link",1);
+	add_next_index_string(_naughty_tags,"meta",1);
+	add_next_index_string(_naughty_tags,"keygen",1);
+	add_next_index_string(_naughty_tags,"object",1);
+	add_next_index_string(_naughty_tags,"plaintext",1);
+	add_next_index_string(_naughty_tags,"style",1);
+	add_next_index_string(_naughty_tags,"script",1);
+	add_next_index_string(_naughty_tags,"textarea",1);
+	add_next_index_string(_naughty_tags,"title",1);
+	add_next_index_string(_naughty_tags,"math",1);
+	add_next_index_string(_naughty_tags,"video",1);
+	add_next_index_string(_naughty_tags,"svg",1);
+	add_next_index_string(_naughty_tags,"xml",1);
+	add_next_index_string(_naughty_tags,"xss",1);
+    zend_update_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),_naughty_tags);
 
 }
 static zend_function_entry filter_method[]={
@@ -636,6 +678,8 @@ PHP_MINIT_FUNCTION(sec)
 	zend_declare_property_null(sec_ce, "_never_allowed_str", strlen("_never_allowed_str"), ZEND_ACC_PUBLIC);
 	zend_declare_property_null(sec_ce, "_never_allowed_regex", strlen("_never_allowed_regex"), ZEND_ACC_PUBLIC);
 	zend_declare_property_null(sec_ce, "_words", strlen("_words"), ZEND_ACC_PUBLIC);
+	zend_declare_property_null(sec_ce, "_naughty_tags", strlen("_naughty_tags"), ZEND_ACC_PUBLIC);
+	zend_declare_property_null(sec_ce, "_evil_attributes", strlen("_evil_attributes"), ZEND_ACC_PUBLIC);
 	return SUCCESS;
 }
 //module entry
