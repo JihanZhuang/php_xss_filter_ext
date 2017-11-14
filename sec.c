@@ -654,6 +654,17 @@ PHP_METHOD(sec,__construct)
 	add_next_index_string(_naughty_tags,"xml",1);
 	add_next_index_string(_naughty_tags,"xss",1);
     zend_update_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),_naughty_tags);
+    MAKE_STD_ZVAL(_evil_attributes);
+    array_init(_evil_attributes); 
+	add_next_index_string(_evil_attributes,"on\\w+",1);
+	add_next_index_string(_evil_attributes,"style",1);
+	add_next_index_string(_evil_attributes,"xmlns",1);
+	add_next_index_string(_evil_attributes,"formaction",1);
+	add_next_index_string(_evil_attributes,"form",1);
+	add_next_index_string(_evil_attributes,"xlink:href",1);
+	add_next_index_string(_evil_attributes,"FSCommand",1);
+	add_next_index_string(_evil_attributes,"seekSegmentTime",1);
+    zend_update_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),_evil_attributes);
 
 }
 static zend_function_entry filter_method[]={
