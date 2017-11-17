@@ -431,14 +431,14 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 		RETURN_STRING(tmp_str,1);
 		free(tmp_str);
 		return;
-	}	
-	naughty_tags=zend_read_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),0);
+	}
+	MAKE_STD_ZVAL(params[0]);
+	MAKE_STD_ZVAL(params[1])
+	MAKE_STD_ZVAL(params[2]);	
 	zend_hash_find(Z_ARRVAL_P(matches),"tagName",8,(void**) &input);
 	if(input!=NULL){
+		naughty_tags=zend_read_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),0);
 		ZVAL_STRING(&func,"strtolower",0);
-		MAKE_STD_ZVAL(params[0]);
-		MAKE_STD_ZVAL(params[1])
-			MAKE_STD_ZVAL(params[2]);
 		ZVAL_ZVAL(params[0],*input,0,0);
 		call_user_function(EG(function_table),NULL,&func,&retval,1,params);	
 		ZVAL_ZVAL(params[0],&retval,0,0);
@@ -459,10 +459,22 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 			FREE_ZVAL(params[1]);
 			FREE_ZVAL(params[2]);
 			return;	
+		}else{
+			input=NULL;
 		}
 	}
-	evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
-	
+	zend_hash_find(Z_ARRVAL_P(matches),"attributes",10,(void**) &input);
+	if(input!=NULL){
+		zval *attributes,*attributes_pattern,*is_evil_pattern;
+		evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
+		MAKE_STD_ZVAL(attributes);
+		MAKE_STD_ZVAL(attributes_pattern);
+		MAKE_STD_ZVAL(is_evil_pattern);
+		array_init(attributes);
+		ZVAL_STRING(attributes_pattern,"#(?<name>[^\\s\042\047>/=]+)(?:\\s*=(?<value>[^\\s\042\047=><`]+|\\s*\042[^\042]*\042|\\s*\047[^\047]*\047|\\s*(?U:[^\\s\042\047=><`]*)))#i",0);
+	}
+	zend_hash_index_find(Z_ARRVAL_P(matches),0,(void **)&input_index);
+	RETURN_ZVAL(*input_index,1,0);
 }
 PHP_METHOD(sec, xss_clean )
 {
