@@ -425,21 +425,21 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 	ZVAL_STRING(&func,"empty",0);
 	MAKE_STD_ZVAL(params[0]);
 	ZVAL_ZVAL(params[0],*input,0,0);
+	INIT_ZVAL(retval);
 	call_user_function(EG(function_table),NULL,&func,&retval,1,params);
 	if(Z_TYPE(retval)==IS_BOOL&&Z_LVAL(retval)==1){
 		char *tmp_str=NULL;
 		zend_hash_index_find(Z_ARRVAL_P(matches),1,(void **)&input_index);
-		tmp_str=(char *)malloc(strlen(Z_STRVAL_P(*input_index)+strlen("&lt;")+1);
+		tmp_str=(char *)malloc(strlen(Z_STRVAL_P(*input_index))+strlen("&lt;")+1);
 		strcpy(tmp_str,"&lt;");	
 		strcat(tmp_str,Z_STRVAL_P(*input_index));
 		RETURN_STRING(tmp_str,1);
 		free(tmp_str);
 		FREE_ZVAL(params[0]);	
-		zval_dtor(&retval);	
 		return;
 	}	
-	_naughty_tags=zend_read_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),0);
-	_evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
+	naughty_tags=zend_read_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),0);
+	evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
 	
 }
 PHP_METHOD(sec, xss_clean )
