@@ -434,27 +434,32 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 	}	
 	naughty_tags=zend_read_property(sec_ce,getThis(),"_naughty_tags",strlen("_naughty_tags"),0);
 	zend_hash_find(Z_ARRVAL_P(matches),"tagName",8,(void**) &input);
-	ZVAL_STRING(&func,"strtolower",0);
-	MAKE_STD_ZVAL(params[0]);
-	MAKE_STD_ZVAL(params[1])
-	MAKE_STD_ZVAL(params[2]);
-	ZVAL_ZVAL(params[0],*input,0,0);
-	call_user_function(EG(function_table),NULL,&func,&retval,1,params);	
-	ZVAL_ZVAL(params[0],&retval,0,0);
-	ZVAL_ZVAL(params[1],naughty_tags,0,0);
-	ZVAL_BOOL(params[2],1);
-	ZVAL_STRING(&func,"in_array",0);
-	call_user_function(EG(function_table),NULL,&func,&retval,3,params);
-	if(Z_TYPE(retval)==IS_BOOL&&Z_LVAL(retval)==1){
-		char *tmp_str=NULL;
-        zend_hash_index_find(Z_ARRVAL_P(matches),1,(void **)&input_index);
-        tmp_str=(char *)malloc(strlen(Z_STRVAL_P(*input_index))+strlen("&lt;")+strlen("&gt;")+1);
-        strcpy(tmp_str,"&lt;");
-        strcat(tmp_str,Z_STRVAL_P(*input_index));
-        strcpy(tmp_str,"&gt;");
-        RETURN_STRING(tmp_str,1);
-        free(tmp_str);
-        return;	
+	if(input!=NULL){
+		ZVAL_STRING(&func,"strtolower",0);
+		MAKE_STD_ZVAL(params[0]);
+		MAKE_STD_ZVAL(params[1])
+			MAKE_STD_ZVAL(params[2]);
+		ZVAL_ZVAL(params[0],*input,0,0);
+		call_user_function(EG(function_table),NULL,&func,&retval,1,params);	
+		ZVAL_ZVAL(params[0],&retval,0,0);
+		ZVAL_ZVAL(params[1],naughty_tags,0,0);
+		ZVAL_BOOL(params[2],1);
+		ZVAL_STRING(&func,"in_array",0);
+		call_user_function(EG(function_table),NULL,&func,&retval,3,params);
+		if(Z_TYPE(retval)==IS_BOOL&&Z_LVAL(retval)==1){
+			char *tmp_str=NULL;
+			zend_hash_index_find(Z_ARRVAL_P(matches),1,(void **)&input_index);
+			tmp_str=(char *)malloc(strlen(Z_STRVAL_P(*input_index))+strlen("&lt;")+strlen("&gt;")+1);
+			strcpy(tmp_str,"&lt;");
+			strcat(tmp_str,Z_STRVAL_P(*input_index));
+			strcat(tmp_str,"&gt;");
+			RETURN_STRING(tmp_str,1);
+			free(tmp_str);
+			FREE_ZVAL(params[0]);
+			FREE_ZVAL(params[1]);
+			FREE_ZVAL(params[2]);
+			return;	
+		}
 	}
 	evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
 	
