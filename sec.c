@@ -463,15 +463,26 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 			input=NULL;
 		}
 	}
-	zend_hash_find(Z_ARRVAL_P(matches),"attributes",10,(void**) &input);
+	zend_hash_find(Z_ARRVAL_P(matches),"attributes",11,(void**) &input);
 	if(input!=NULL){
-		zval *attributes,*attributes_pattern,*is_evil_pattern;
+		zval *attributes,*attributes_pattern,*is_evil_pattern,*m_attributes;
 		evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
 		MAKE_STD_ZVAL(attributes);
 		MAKE_STD_ZVAL(attributes_pattern);
 		MAKE_STD_ZVAL(is_evil_pattern);
 		array_init(attributes);
 		ZVAL_STRING(attributes_pattern,"#(?<name>[^\\s\042\047>/=]+)(?:\\s*=(?<value>[^\\s\042\047=><`]+|\\s*\042[^\042]*\042|\\s*\047[^\047]*\047|\\s*(?U:[^\\s\042\047=><`]*)))#i",0);
+		ZVAL_STRING(&func,"implode",0);
+		ZVAL_STRING(params[0],"|",0);
+		ZVAL_ZVAL(params[1],evil_attributes,0,0);
+		call_user_function(EG(function_table),NULL,&func,is_evil_pattern,2,params);
+		MAKE_STD_ZVAL(m_attributes);
+		ZVAL_ZVAL(m_attributes,*input,1,0);
+		do{
+			ZVAL_STRING(params[0],"#^[^a-z]+#i",0);
+			ZVAL_STRING(params[1],"",0);
+			ZVAL_ZVAL(params[2],m_attributes,0);
+		}while(strcmp(Z_STRVAL_P(m_attributes),"")!=0);
 	}
 	zend_hash_index_find(Z_ARRVAL_P(matches),0,(void **)&input_index);
 	RETURN_ZVAL(*input_index,1,0);
