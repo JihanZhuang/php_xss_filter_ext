@@ -417,7 +417,7 @@ PHP_METHOD(sec,_compact_exploded_words)
 }
 PHP_METHOD(sec,_sanitize_naughty_html)
 {
-	zval *naughty_tags,*evil_attributes,func,*matches,**input=NULL,**input_index,retval,*params[4];
+	zval *naughty_tags,*evil_attributes,func,*matches,**input=NULL,**input_index,retval,*params[4],retval_0;
 	if(zend_parse_parameters(ZEND_NUM_ARGS(),"z",&matches)==FAILURE){
         return;
     }
@@ -466,7 +466,7 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 	}
 	zend_hash_find(Z_ARRVAL_P(matches),"attributes",11,(void**) &input);
 	if(input!=NULL){
-		zval *attributes,*attributes_pattern,*is_evil_pattern,*m_attributes;
+		zval *attributes,*attributes_pattern,*is_evil_pattern,*m_attributes,*attr_0,*attr_1,*slash,*tagName;
 		evil_attributes=zend_read_property(sec_ce,getThis(),"_evil_attributes",strlen("_evil_attributes"),0);
 		MAKE_STD_ZVAL(attributes);
 		MAKE_STD_ZVAL(attributes_pattern);
@@ -478,7 +478,7 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 		ZVAL_ZVAL(params[1],evil_attributes,0,0);
 		call_user_function(EG(function_table),NULL,&func,is_evil_pattern,2,params);
 		MAKE_STD_ZVAL(m_attributes);
-		ZVAL_ZVAL(m_attributes,*input,1,0);
+		ZVAL_ZVAL(m_attributes,*input,0,0);
 		do{
 			ZVAL_STRING(&func,"preg_replace",0);
 			ZVAL_STRING(params[0],"#^[^a-z]+#i",0);
@@ -488,10 +488,74 @@ PHP_METHOD(sec,_sanitize_naughty_html)
 			ZVAL_STRING(&func,"preg_match",0);
 			ZVAL_ZVAL(params[0],attributes_pattern,0,0);
 			ZVAL_ZVAL(params[1],&retval,0,0);
+			ZVAL_ZVAL(m_attributes,&retval,0,0);
 			ZVAL_ZVAL(params[2],attributes,0,0);
-			ZVAL_LONG(params[3],256);
-			
+			ZVAL_LONG(params[3],256);//PREG_OFFSET_CAPTURE
+			call_user_function(EG(function_table),NULL,&func,&retval,4,params);
+			if(Z_TYPE(retval)==IS_BOOL&&(Z_LVAL(retval)==0)){
+				break;
+			}		
+			ZVAL_ZVAL(params[0],is_evil_pattern,0,0);	
+			zend_hash_find(Z_ARRVAL_P(attributes),"name",5,(void**) &input);
+			zend_hash_index_find(Z_ARRVAL_P(*input),0,(void **)&input);
+			ZVAL_ZVAL(params[1],*input,0,0);
+			call_user_function(EG(function_table),NULL,&func,&retval,2,params);
+			zend_hash_find(Z_ARRVAL_P(attributes),"value",6,(void**) &input);
+			zend_hash_index_find(Z_ARRVAL_P(*input),0,(void **)&input);
+			ZVAL_STRING(&func,"trim",0);
+			ZVAL_ZVAL(params[0],*input,0,0);
+			call_user_function(EG(function_table),NULL,&func,&retval_0,1,params);
+			if((Z_TYPE(retval)==IS_BOOL&&Z_LVAL(retval)!=0)||strcmp(Z_STRVAL(retval_0),"")==0){
+				add_next_index_string(attributes,"xss=removed",0);		
+			}else{
+				zend_hash_index_find(Z_ARRVAL_P(attributes),0,(void**) &input);
+				zend_hash_index_find(Z_ARRVAL_P(*input),0,(void**) &input);
+				add_next_index_string(attributes,Z_STRVAL_P(*input),0);		
+			}
+            zend_hash_index_find(Z_ARRVAL_P(attributes),0,(void**) &input);
+            zend_hash_index_find(Z_ARRVAL_P(*input),0,(void**) &input);	
+			ZVAL_ZVAL(attr_0,*input,0,0);
+            zend_hash_index_find(Z_ARRVAL_P(attributes),0,(void**) &input);
+            zend_hash_index_find(Z_ARRVAL_P(*input),1,(void**) &input);	
+			ZVAL_ZVAL(attr_1,*input,0,0);
+			ZVAL_STRING(&func,"substr",0);
+			ZVAL_ZVAL(params[0],m_attributes,0,0);
+			ZVAL_LONG(params[1],Z_LVAL_P(attr_1)+strlen(Z_STRVAL_P(attr_0)));
+			call_user_function(EG(function_table),NULL,&func,&retval,2,params);
+			ZVAL_ZVAL(m_attributes,&retval,0,0);
 		}while(strcmp(Z_STRVAL_P(m_attributes),"")!=0);
+		ZVAL_STRING(&func,"count",0);
+	    ZVAL_ZVAL(params[0],attributes,0,0);
+	    call_user_function(EG(function_table),NULL,&func,&retval,1,params);
+		zend_hash_find(Z_ARRVAL_P(matches),"slash",6,(void**) &input);
+		ZVAL_ZVAL(slash,*input,0,0);
+		zend_hash_find(Z_ARRVAL_P(matches),"tagName",8,(void**) &input);
+		ZVAL_ZVAL(tagName,*input,0,0);
+
+	    if(Z_LVAL(retval)!=0){
+			char *t_str=(char *)malloc(strlen(Z_STRVAL_P(slash))+strlen(Z_STRVAL_P(tagName))+strlen("<>"));
+			strcpy(t_str,"<");		
+			strcat(t_str,Z_STRVAL_P(slash));
+			strcat(t_str,Z_STRVAL_P(tagName));
+			strcat(t_str,">");		
+			RETURN_STRING(t_str,1);
+			free(t_str);
+    	}else{
+			ZVAL_STRING(&func,"implode",0);
+			ZVAL_STRING(params[0]," ",0);
+	    	ZVAL_ZVAL(params[1],attributes,0,0);
+			call_user_function(EG(function_table),NULL,&func,&retval,2,params);	
+			char *t_str=(char *)malloc(strlen(Z_STRVAL_P(slash))+strlen(Z_STRVAL_P(tagName))+strlen("<> ")+strlen(Z_STRVAL(retval)));
+			strcpy(t_str,"<");  
+            strcat(t_str,Z_STRVAL_P(slash));
+            strcat(t_str,Z_STRVAL_P(tagName));
+            strcat(t_str," ");
+            strcat(t_str,Z_STRVAL(retval));
+            strcat(t_str,">");
+			RETURN_STRING(t_str,1);
+			free(t_str);
+		}
+		return;
 	}
 	zend_hash_index_find(Z_ARRVAL_P(matches),0,(void **)&input_index);
 	RETURN_ZVAL(*input_index,1,0);
