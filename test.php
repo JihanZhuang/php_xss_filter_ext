@@ -10,5 +10,5 @@ var_dump($a->_naughty_tags);
 var_dump($a->_evil_attributes);
 echo $a->_compact_exploded_words(array('sdf sad sadf asdf asd ','123123123'));
 */
-//echo $a->_sanitize_naughty_html(array(1=>'123','clos1eTag'=>'123','tag1Name'=>'prom1pt','attributes'=>123));
-echo PREG_OFFSET_CAPTURE;
+echo $a->_sanitize_naughty_html(array(1=>'123','clos1eTag'=>'123','tag1Name'=>'prom1pt','attributes'=>123));
+//echo PREG_OFFSET_CAPTURE;
